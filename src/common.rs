@@ -1,20 +1,11 @@
+//! Commom functionality used across library
+
 use std::str;
 use ring::digest;
 
 // "Debug print": prints var_name=value on a single line.
 macro_rules! dprint {
     ($a:expr) => (println!("{:?}={:?}", stringify!($a),$a))
-}
-
-#[macro_export]
-macro_rules! timeit {
-    ($name:expr,$a:block) => {{
-        let start_time = ::time::precise_time_ns();
-        let ret = $a;
-        let end_time = ::time::precise_time_ns();
-        println!("{}: Elapsed time: {:?}ns", $name, end_time - start_time);
-        ret
-    }}
 }
 
 // Stolen from: http://ericsink.com/entries/rust1.html

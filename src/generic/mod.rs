@@ -1,4 +1,4 @@
-/// Generic constructions of updatable encryption from building blocks
+//! Generic constructions of updatable encryption from building blocks
 
 mod hybrid;
 mod naive;

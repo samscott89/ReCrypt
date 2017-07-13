@@ -2,7 +2,6 @@ use ring::{aead, rand};
 use ring::rand::SecureRandom;
 
 use super::*;
-use super::errors::*;
 
 use std::ops::{Add, Sub};
 
@@ -12,6 +11,7 @@ use std::io::{BufReader, BufWriter};
 // struct RingAE(&'static aead::Algorithm);
 macro_rules! make_ring_ae {
     ($name:ident, $alg:expr, $keyname:ident) => (
+        /// AE scheme wrapping the *ring* implementation
         pub struct $name;
 
         #[derive(Clone, Debug, PartialEq)]

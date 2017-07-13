@@ -1,7 +1,7 @@
+#![allow(unused_variables)]
+
 use super::super::*;
 use ::io::*;
-
-use std::fs::File;
 
 use std::io::{Write,BufReader,BufWriter};
 
@@ -34,7 +34,7 @@ impl Cipher for NullCipher {
             if block.len() < 128 {
                 eof = true;
             }
-            try!(writer.write(&block));
+            try!(writer.write_all(&block));
         }
         Ok(())
     }
@@ -84,7 +84,7 @@ impl UpEncCtxtIndep for NullCipher {
                 _ => ()
             }
 
-            try!(writer.write(&chunk));
+            try!(writer.write_all(&chunk));
         }
         Ok(())
     }

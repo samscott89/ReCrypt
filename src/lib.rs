@@ -1,3 +1,26 @@
+/// ReCrypt - Key Rotation for Authenticated Encryption
+///
+/// This is a research prototype and should never be used for important data
+///
+///
+/// This library contains some prototype implementations of updatable encryption
+/// schemes. See https://eprint.iacr.org/2017/527 for more details.
+///
+/// There are 2 main building blocks:
+///   - Authenticated encryption schemes (AES and ChaCha from *ring*).
+///   - Key-homomorphic PRF (using `curve25519_dalek`)
+///
+/// These can be composed to construct updatable encryption.
+///
+/// The "naive" schemes are `Naive` and `KemDem`, which do not meet our security
+/// definitions and are included for reference.
+///
+/// The updatable schemes are `Kss` and `ReCrypt`. These can be found in the
+/// [generic](generic/) module.
+///
+/// We also define the `UpEnc` and `UpEncCtxtIndep` traits, which match the definitions
+/// given in our text.
+
 extern crate curve25519_dalek;
 #[macro_use]
 extern crate error_chain;
@@ -29,7 +52,7 @@ pub use kh_prf::KhPrf;
 pub use ring_ae::{RingAes, RingChaCha};
 // pub use recrypt::ReCrypt;
 
-/// A generic `Cipher` trait.
+/// A generic cipher trait.
 ///
 /// Main algorithms are the typical `(KeyGen, Encrypt, Decrypt)` tuple,
 /// with `read_key/write_key` for IO help.
@@ -66,6 +89,7 @@ pub trait UpEnc {
     fn decrypt<In: Read, Out: Write>(key: Self::K, ct_hdr: &mut In, ct_body: &mut In, pt: &mut Out) -> Result<()>;
 }
 
+/// Trait encapsulating some common functionality needed for the keys.
 pub trait Key: PartialEq + Clone + Debug + Sized {
     fn read_key<In: Read>(key_in: &mut In) -> Result<Self>;
     fn write_key<Out: Write>(&self, key_out: &mut Out) -> Result<()>;

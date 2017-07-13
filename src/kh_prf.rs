@@ -4,17 +4,16 @@ use curve25519_dalek::scalar::Scalar;
 
 use rand::os::OsRng;
 
-use std::io::{ErrorKind,Read,Write,BufReader,BufWriter};
-use std::fs::File;
-
-use super::*;
-use super::errors::*;
-
-use common::{h, pad, remove_padding};
-use io::*;
-
+use std::io::{Read,Write,BufReader,BufWriter};
 use std::ops::{Add, Sub};
 
+use super::*;
+use common::{h, pad};
+use io::*;
+
+/// Encryption using a key-homomorphic PRF.
+///
+/// This is the generic "counter-mode" encryption: `E(k, m) = (m_1 + F(k, 1), ...)`. 
 pub struct KhPrf;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -86,7 +85,7 @@ impl Cipher for KhPrf {
             }
 
             let ct_block = encrypt_block(key.0, &block, ctr);
-            writer.write(&ct_block)?;
+            writer.write_all(&ct_block)?;
 
             // Increment ctr for each block
             ctr += 1;
@@ -124,7 +123,7 @@ impl Cipher for KhPrf {
 
             // Decode the EcPoint and decrypt.
             // let point = EcPoint::from_bytes(&chunk).unwrap();
-            prev_pt_block = decrypt_block(key.0, &chunk, ctr);
+            prev_pt_block = decrypt_block(key.0, &chunk, ctr)?;
 
             // Increment ctr for each block
             ctr += 1;
@@ -177,7 +176,7 @@ impl UpEncCtxtIndep for KhPrf {
 
             // Write the newpoint to the output file.
             // let bytes = newpoint.serialize();
-            writer.write(&bytes[..])?;
+            writer.write_all(&bytes[..])?;
 
             ctr += 1;
         }
@@ -246,14 +245,13 @@ pub fn update_point(rk: Scalar, block: ExtendedPoint, ctr: u64) -> ExtendedPoint
 }
 
 // Decrypts a single block of ciphertext
-pub fn decrypt_block(key: Scalar, ct_block: &[u8], ctr: u64) -> Vec<u8> {
+pub fn decrypt_block(key: Scalar, ct_block: &[u8], ctr: u64) -> Result<Vec<u8>> {
     // let point = deserialize(&ct_block).unwrap();
     debug_assert_eq!(ct_block.len(), 32);
     let mut point_bytes = [0u8; 32];
     point_bytes.copy_from_slice(&ct_block);
     let point = curve25519_dalek::curve::CompressedEdwardsY(point_bytes);
     let point = point.decompress().unwrap();
-
     decode_point(decrypt_point(key, point, ctr))
 }
 
@@ -270,22 +268,15 @@ pub fn encode_point(bytes: &[u8]) -> ExtendedPoint {
     point_bytes[..31].copy_from_slice(bytes);
     let enc  = ExtendedPoint::from_uniform_representative(&point_bytes);
     enc
-    // for top_byte in 0..255 {
-    //     point_bytes[0] = top_byte;
-    //     let point = curve25519_dalek::curve::CompressedEdwardsY(point_bytes);
-    //     if let Some(point) = point.decompress() {
-    //         return point;
-    //     }
-    // }
-
-    // panic!("No encoded point found!");
 }
-pub fn decode_point(point: ExtendedPoint) -> Vec<u8> {
+pub fn decode_point(point: ExtendedPoint) -> Result<Vec<u8>> {
     // point.compress_edwards().as_bytes()[1..].to_vec()
     // println!("Point to decode:{:?}", point); 
-    let decoded = point.to_uniform_representative().unwrap()[..31].to_vec();
-    // println!("Decoded: {:?}", decoded);
-    decoded
+    let decoded = point.to_uniform_representative().unwrap();
+    if decoded[31] != 0 {
+        return Err("invalid point decoding".into());
+    }
+    Ok(decoded[..31].to_vec())
 }
 
 pub fn hash_to_group(ctr: u64) -> ExtendedPoint {

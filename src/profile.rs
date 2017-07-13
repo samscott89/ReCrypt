@@ -1,20 +1,19 @@
+//! Methods to profile schemes
+
 extern crate rand;
 extern crate time;
 
 use super::*;
-use generic::{Kss, ReCrypt};
-use generic::null::NullCipher;
-
-use common::*;
+use generic::*;
 use io::*;
 
-use std::fs::{metadata, remove_file,remove_dir_all,create_dir,File};
+use std::fs::{metadata,remove_dir_all,create_dir,File};
 use std::io::{Write,BufWriter};
 use std::path::{Path,PathBuf};
 use std::env;
 
-type ProfileCipher = Kss<RingAes, RingAes>;
-// type ProfileCipher = ReCrypt<RingAes, KhPrf>;
+// type ProfileCipher = Kss<RingAes, RingAes>;
+type ProfileCipher = ReCrypt<RingAes, KhPrf>;
 
 pub fn run_all() {
     profile_init();

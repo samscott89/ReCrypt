@@ -1,19 +1,12 @@
 use common::remove_padding;
-use rand;
 use super::Error;
 
 use std;
-use std::io::{Write,ErrorKind,Read, BufReader};
-use std::fs::{create_dir,metadata,File,OpenOptions};
-use std::path::{Path, PathBuf};
-use std::env;
+use std::io::{Write, Read};
+use std::fs::{File,OpenOptions};
+use std::path::Path;
 
 use ring::digest;
-
-// Generates an ErrorKind::InvalidData error.
-pub fn invalid_file<T>(msg: &str) -> Result<T,Error> {
-    Err("invalid file".into())
-}
 
 // Reads a chunk of up to len bytes. Any return value smaller than
 // len indicates EOF has been reached.
@@ -67,37 +60,6 @@ pub fn write_pt(block: Vec<u8>, writer: &mut Write, padded: bool)
     // Write the bytes to the file.
     try!(writer.write_all(&byte_vec[..]));
     Ok(())
-}
-
-
-pub fn hash_file<In: Read>(file: &mut In) -> Vec<u8> {
-    let mut reader = BufReader::new(file);
-
-    // 512 is the block size for SHA256 -- probably doesn't matter.
-    let chunk_size = 512;
-
-    let mut ctx = digest::Context::new(&digest::SHA256);
-
-    // h(x) = Sha256('h' || x)
-    ctx.update(&[b'h']);
-
-    loop {
-        let chunk = read_chunk(&mut reader, chunk_size).unwrap();
-        match chunk.len() > 0 {
-            true => ctx.update(&chunk),
-            false => {}
-        };
-
-        // Quit when the chunk size is smaller than expected.
-        if chunk.len() < chunk_size {
-            break;
-        }
-    }
-
-    let result = ctx.finish();
-    let mut output = Vec::new();
-    output.extend_from_slice(&result.as_ref());
-    output
 }
 
 pub fn open_file<P: AsRef<Path>>(path: P) -> File {

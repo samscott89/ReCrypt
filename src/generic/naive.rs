@@ -1,8 +1,9 @@
+#![allow(unused_variables)]
+
 use super::super::*;
 use ::io::*;
 
-use std::fs::{remove_file,File,OpenOptions};
-use std::io::{Write,BufReader,BufWriter,SeekFrom,Seek};
+use std::io::{Write,BufReader,BufWriter};
 use std::marker::PhantomData;
 
 pub struct Naive<C>{
@@ -49,7 +50,7 @@ impl<C: Cipher> UpEnc for Naive<C> {
                 _ => ()
             }
 
-            try!(writer.write(&chunk));
+            try!(writer.write_all(&chunk));
         }
         Ok(())
     }
@@ -100,7 +101,7 @@ impl<C: Cipher> UpEnc for KemDem<C> {
                 _ => ()
             }
 
-            try!(hdr_writer.write(&chunk));
+            try!(hdr_writer.write_all(&chunk));
         }
         // Set ct2_body = ct1_body
         loop {
@@ -113,13 +114,13 @@ impl<C: Cipher> UpEnc for KemDem<C> {
                 _ => ()
             }
 
-            try!(body_writer.write(&chunk));
+            try!(body_writer.write_all(&chunk));
         }
         Ok(())
     }
     fn decrypt<In: Read ,Out: Write>(key: Self::K, ct_hdr: &mut In, ct_body: &mut In, pt: &mut Out) -> Result<()> {
         let mut buf = Vec::new();
-        C::decrypt(key, ct_hdr, &mut buf);
+        C::decrypt(key, ct_hdr, &mut buf)?;
         let k_dem = C::K::read_key(&mut (&buf[..]))?;
         C::decrypt(k_dem, ct_body, pt)
     }
