@@ -1,0 +1,11 @@
+[package]
+name = "recrypt"
+version = "0.1.0"
+authors = ["Sam Scott <me@samjs.co.uk>"]
+
+[dependencies]
+curve25519-dalek = { git = "https://github.com/samscott89/curve25519-dalek" }
+error-chain = "0.10"
+rand = "0.3"
+ring = "0.11"
+time ="*"
