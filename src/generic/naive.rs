@@ -6,10 +6,22 @@ use ::io::*;
 use std::io::{Write,BufReader,BufWriter};
 use std::marker::PhantomData;
 
+/// Naive re-encryption scheme
+///
+/// Updates are performed by decrypting and re-encrypting the entire ciphertext.
+/// Hence the entire plaintext is encrypted in the ciphertext header, and the
+/// ciphertext body is empty.
 pub struct Naive<C>{
     cipher: PhantomData<C>
 }
 
+/// KemDem re-encryption scheme
+///
+/// This is often seen in practice as the way to do key rotations. The 
+/// ciphertext consists of data encryption key, which encrypts the plaintext,
+/// and is then itself encrypted by the main key. 
+///
+/// Hence, "key-encapsulsation mechanism, data-encapsulation mechanism".
 pub struct KemDem<C>{
     cipher: PhantomData<C>
 }

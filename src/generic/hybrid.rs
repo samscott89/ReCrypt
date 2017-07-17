@@ -5,11 +5,31 @@ use std::io::{Read, Write, BufReader, BufWriter, Cursor};
 use std::marker::PhantomData;
 use std::ops::{Add,Sub};
 
+/// KemDem with Secret Sharing
+///
+/// This is an updatable encryption algorithm which meets some basic
+/// indistinguishability and integrity notions.
+///
+/// Encryption is computed as:
+/// ```text
+/// E(k, m) = E(k, x+y || E(x, h(m)))
+///           y, E(x, m)
+/// ```
+///
+/// `Kss` is defined over any generic pair of ciphers `A, B`. Which must be
+/// authenticated encryption schemes in order to meet the security definitions.
+///
+/// `Kss` does not update the data encryption key when performing updates.
 pub struct Kss<A, B>{
     kem_cipher: PhantomData<A>,
     dem_cipher: PhantomData<B>
 }
 
+/// ReCrypt updatable encryption algorithm
+///
+/// This updatable encryption scheme meets the strongest set of security notions.
+/// On an update (`rekeygen` followed by `reencrypt`), the entire ciphertext
+/// is "refreshed", resulting in an entirely refreshed ciphertext.
 pub struct ReCrypt<A, B>{
     kem_cipher: PhantomData<A>,
     upenc_cipher: PhantomData<B>

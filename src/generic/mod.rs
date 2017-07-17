@@ -2,7 +2,7 @@
 
 mod hybrid;
 mod naive;
-pub mod null;
+mod null;
 
 pub use self::naive::{KemDem, Naive};
 pub use self::hybrid::{Kss, ReCrypt};
