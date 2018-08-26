@@ -4,11 +4,9 @@ version = "0.1.0"
 authors = ["Sam Scott <me@samjs.co.uk>"]
 
 [dependencies]
-curve25519-dalek = { git = "https://github.com/samscott89/curve25519-dalek", branch = "ell-old" }
-# curve25519-dalek = { path = "../rust/curve25519-dalek/" }
+curve25519-dalek = "*"
 error-chain = "0.12.0"
-# rand = "0.5"
-rand = "0.4"
+rand = "0.5"
 ring = "0.13.2"
 time = "0.1.40"
 sha2 = "0.7.1"

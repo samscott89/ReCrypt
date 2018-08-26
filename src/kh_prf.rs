@@ -1,8 +1,10 @@
 use curve25519_dalek;
-use curve25519_dalek::curve::ExtendedPoint;
+// use curve25519_dalek::curve::RistrettoPoint;
+use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 
-use rand::os::OsRng;
+use rand::OsRng;
+use sha2::Sha512;
 
 use std::io::{Read,Write,BufReader,BufWriter};
 use std::ops::{Add, Sub};
@@ -25,10 +27,10 @@ impl Key for KhKey {
         let mut ctr = [0u8; 1];
         key_in.read_exact(&mut bytes)?;
         key_in.read_exact(&mut ctr)?;
-        Ok(KhKey(Scalar(bytes), ctr[0] as u64))
+        Ok(KhKey(Scalar::from_bytes_mod_order(bytes), ctr[0] as u64))
     }
     fn write_key<Out: Write>(&self, key_out: &mut Out) -> Result<()> {
-        key_out.write_all(&(&self.0).0).chain_err(|| "failed writing to file")?;
+        key_out.write_all(&(&self.0).to_bytes()).chain_err(|| "failed writing to file")?;
         key_out.write_all(&[self.1 as u8]).chain_err(|| "failed writing to file")
     }
 }
@@ -198,9 +200,10 @@ pub fn encrypt_block(key: Scalar, msg: &[u8], ctr: u64) -> Vec<u8> {
     let m = encode_point(&msg);
 
     let c = encrypt_point(key, m, ctr);
-
+    c.compress().to_bytes().to_vec()
+    // c.decode().to_vec()
     // c.serialize()
-    c.compress_edwards().as_bytes().to_vec()
+    // c.compress_edwards().as_bytes().to_vec()
 }
 
 // big endian u64 to u8 array
@@ -218,12 +221,12 @@ pub fn u64_to_u8(v: u64) -> [u8; 8] {
     ]
 }
 
-fn prf(key: Scalar, ctr: u64) -> ExtendedPoint {
-    (&key * &hash_to_group(ctr)).mult_by_cofactor()
+fn prf(key: Scalar, ctr: u64) -> RistrettoPoint {
+    (&key * &hash_to_group(ctr))
 }
 
 // Encrypt a single EcPoint.
-pub fn encrypt_point(key: Scalar, msg: ExtendedPoint, ctr: u64) -> ExtendedPoint {
+pub fn encrypt_point(key: Scalar, msg: RistrettoPoint, ctr: u64) -> RistrettoPoint {
     // C::prf(key, &u64_to_u8(ctr)) + msg
     &prf(key, ctr) + &msg
 }
@@ -232,15 +235,21 @@ pub fn update_block(rk: Scalar, ct_block: &[u8], ctr: u64) -> Vec<u8> {
     debug_assert_eq!(ct_block.len(), 32);
     let mut point_bytes = [0u8; 32];
     point_bytes.copy_from_slice(&ct_block);
-    let point = curve25519_dalek::curve::CompressedEdwardsY(point_bytes);
-    let point = point.decompress().unwrap();
+    let point = CompressedRistretto(point_bytes).decompress().unwrap();
+    // let point = RistrettoPoint::encode(point_bytes);
+    // let point = curve25519_dalek::curve::CompressedEdwardsY(point_bytes);
+
+    // let point = point.decompress().unwrap();
     let newpoint = update_point(rk, point, ctr);
 
-    newpoint.compress_edwards().as_bytes().to_vec()
+    // newpoint.compress_edwards().as_bytes().to_vec()
+    // newpoint.decode().to_vec()
+    newpoint.compress().to_bytes().to_vec()
+
 }
 
 // Updates a single ciphertext block/point
-pub fn update_point(rk: Scalar, block: ExtendedPoint, ctr: u64) -> ExtendedPoint {
+pub fn update_point(rk: Scalar, block: RistrettoPoint, ctr: u64) -> RistrettoPoint {
     &prf(rk, ctr) + &block
 }
 
@@ -250,51 +259,48 @@ pub fn decrypt_block(key: Scalar, ct_block: &[u8], ctr: u64) -> Result<Vec<u8>> 
     debug_assert_eq!(ct_block.len(), 32);
     let mut point_bytes = [0u8; 32];
     point_bytes.copy_from_slice(&ct_block);
-    let point = curve25519_dalek::curve::CompressedEdwardsY(point_bytes);
-    let point = point.decompress().unwrap();
+    let point = CompressedRistretto(point_bytes).decompress().unwrap();
+    // let point = curve25519_dalek::curve::CompressedEdwardsY(point_bytes);
+    // let point = point.decompress().unwrap();
     decode_point(decrypt_point(key, point, ctr))
 }
 
 // Decrypts a single EcPoint
-pub fn decrypt_point(key: Scalar, ct: ExtendedPoint, ctr: u64) -> ExtendedPoint {
+pub fn decrypt_point(key: Scalar, ct: RistrettoPoint, ctr: u64) -> RistrettoPoint {
     &ct - &prf(key, ctr)
 
 }
 
 
-pub fn encode_point(bytes: &[u8]) -> ExtendedPoint {
+pub fn encode_point(bytes: &[u8]) -> RistrettoPoint {
     debug_assert_eq!(bytes.len(), 31);
     let mut point_bytes = [0u8; 32];
     point_bytes[..31].copy_from_slice(bytes);
-    let enc  = ExtendedPoint::from_uniform_representative(&point_bytes);
-    enc
+    RistrettoPoint::encode(point_bytes)
 }
-pub fn decode_point(point: ExtendedPoint) -> Result<Vec<u8>> {
-    // point.compress_edwards().as_bytes()[1..].to_vec()
-    // println!("Point to decode:{:?}", point); 
-    let decoded = point.to_uniform_representative().unwrap();
+pub fn decode_point(point: RistrettoPoint) -> Result<Vec<u8>> {
+    let decoded = point.decode();
     if decoded[31] != 0 {
         return Err("invalid point decoding".into());
     }
     Ok(decoded[..31].to_vec())
 }
 
-pub fn hash_to_group(ctr: u64) -> ExtendedPoint {
+pub fn hash_to_group(ctr: u64) -> RistrettoPoint {
     let mut bytes = u64_to_u8(ctr);
-    let hash = h(&bytes);
-    let p1 = encode_point(&hash[1..]);
-    bytes[0] = 0xff;
-    let mut hash = h(&bytes);
-    hash[31] &= 0x7f;
-    let p2 = Scalar(hash);
-    &p1 + &(&p2 * &curve25519_dalek::constants::ED25519_BASEPOINT_TABLE)
-    // // This already maps the full 32-bytes to group points.
-    // let mut y = curve25519_dalek::curve::CompressedEdwardsY(hash);
-    // let mut point = y.decompress();
-    // while point.is_none() {
-    //     hash = h(&hash);
-    //     y = curve25519_dalek::curve::CompressedEdwardsY(hash);
-    //     point = y.decompress();
-    // }
-    // point.unwrap()
+    RistrettoPoint::hash_from_bytes::<Sha512>(&bytes)
+}
+
+trait MissingFunctionality {
+    fn encode(bytes: [u8; 32]) -> Self;
+    fn decode(&self) -> [u8; 32];
+}
+
+impl MissingFunctionality for RistrettoPoint {
+    fn encode(bytes: [u8; 32]) -> Self {
+        unimplemented!("map from bytes -> Ristretto")
+    }
+    fn decode(&self) -> [u8; 32] {
+        unimplemented!("map from RistrettoPoint -> bytes")
+    }
 }

@@ -26,6 +26,7 @@ extern crate curve25519_dalek;
 extern crate error_chain;
 extern crate rand;
 extern crate ring;
+extern crate sha2;
 
 use std::fmt::Debug;
 use std::io::{Read, Write};
