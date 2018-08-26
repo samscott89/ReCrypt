@@ -1,22 +1,5 @@
 //! Commom functionality used across library
-
-use std::str;
 use ring::digest;
-
-// "Debug print": prints var_name=value on a single line.
-macro_rules! dprint {
-    ($a:expr) => (println!("{:?}={:?}", stringify!($a),$a))
-}
-
-// Stolen from: http://ericsink.com/entries/rust1.html
-// Seems surprisingly complicated.
-// This fn is useful for debugging, so we permit it even if it's not being used.
-pub fn to_hex_string(ba: &[u8]) -> String {
-    let strs: Vec<String> = ba.iter()
-        .map(|b| format!("{:02X}", b))
-        .collect();
-    strs.join(" ")
-}
 
 // Simplification for SHA256 hash
 pub fn h(x: &[u8]) -> [u8; 32] {

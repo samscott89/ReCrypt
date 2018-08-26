@@ -64,7 +64,7 @@ impl Cipher for KhPrf {
      // Generate a random encryption key
     fn keygen() -> Self::K {
         let mut rng = OsRng::new().unwrap();
-        KhKey(Scalar::random(&mut rng), 0)
+        KhKey(Scalar::random(&mut rng), 32)
     }
 
     fn encrypt<In: Read, Out: Write>(key: Self::K, pt: &mut In, ct: &mut Out) -> Result<()> {
