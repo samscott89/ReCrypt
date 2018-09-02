@@ -64,7 +64,7 @@ impl Cipher for KhPrf {
      // Generate a random encryption key
     fn keygen() -> Self::K {
         let mut rng = OsRng::new().unwrap();
-        KhKey(Scalar::random(&mut rng), 32)
+        KhKey(Scalar::random(&mut rng), 1)
     }
 
     fn encrypt<In: Read, Out: Write>(key: Self::K, pt: &mut In, ct: &mut Out) -> Result<()> {
@@ -289,12 +289,4 @@ pub fn hash_to_group(ctr: u64) -> ExtendedPoint {
     let p2 = Scalar(hash);
     &p1 + &(&p2 * &curve25519_dalek::constants::ED25519_BASEPOINT_TABLE)
     // // This already maps the full 32-bytes to group points.
-    // let mut y = curve25519_dalek::curve::CompressedEdwardsY(hash);
-    // let mut point = y.decompress();
-    // while point.is_none() {
-    //     hash = h(&hash);
-    //     y = curve25519_dalek::curve::CompressedEdwardsY(hash);
-    //     point = y.decompress();
-    // }
-    // point.unwrap()
 }

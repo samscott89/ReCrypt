@@ -160,11 +160,10 @@ impl<A: Cipher> UpEnc for ReCrypt<A, KhPrf>
         // buf contains chi'
         chi_new.write_key(&mut buf)?;
 
-        let mut x_buf = Vec::new();
-        let prf_x = KhKey(x_new.0.clone(), 0);
-        prf_x.write_key(&mut x_buf)?;
-        // reencrypts the remaining value (i.e. tau) using prf_x
-        KhPrf::reencrypt(&mut (&x_buf[..]), &mut reader, &mut buf)?;
+        let mut tau = Vec::new();
+        reader.read_to_end(&mut tau)?;
+        let tau_new = kh_prf::update_block(x_new.0, &tau, 0);
+        buf.extend_from_slice(&tau_new);
         // buf should contain (chi' || tau')
 
         // Write out to token x', y'
@@ -192,7 +191,9 @@ impl<A: Cipher> UpEnc for ReCrypt<A, KhPrf>
 
         // Encrypt tau into the header
         // Here the header contains chi || tau, where tau = h(m) + F(x, 0)
-        KhPrf::encrypt(prf_x, &mut hm.as_ref(), &mut buf)?;
+        // KhPrf::encrypt(prf_x, &mut hm.as_ref(), &mut buf)?;
+        let tau = kh_prf::encrypt_block(prf_x.0, &hm.as_ref()[..31], 0);
+        buf.extend_from_slice(&tau);
         // AEAD encrypt the header into the ciphertext header
         A::encrypt(key, &mut (&buf[..]), ct_hdr)
     }
@@ -239,11 +240,12 @@ impl<A: Cipher> UpEnc for ReCrypt<A, KhPrf>
         KhPrf::decrypt(x, &mut ct_reader, &mut pt_and_hash)?;
         let tau_check = pt_and_hash.finish();
         let mut tau_buf = Vec::new();
-        KhPrf::decrypt(prf_x, &mut reader, &mut tau_buf)?;
+        reader.read_to_end(&mut tau_buf)?;
+        let tau = kh_prf::decrypt_block(prf_x.0, &tau_buf, 0)?;
 
         // This isn't great; the plaintext is already written to file before the
         // integrity is checked.
-        if tau_buf != tau_check.as_ref() {
+        if &tau[..] != &tau_check.as_ref()[..31] {
             return Err("integrity check failed".into());
         }
         Ok(())
