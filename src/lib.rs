@@ -41,6 +41,7 @@ pub mod errors {
 
 use errors::*;
 
+#[macro_use]
 pub mod common;
 pub mod generic;
 mod io;

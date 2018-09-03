@@ -191,9 +191,9 @@ impl<A: Cipher> UpEnc for ReCrypt<A, KhPrf>
 
         // Encrypt tau into the header
         // Here the header contains chi || tau, where tau = h(m) + F(x, 0)
-        // KhPrf::encrypt(prf_x, &mut hm.as_ref(), &mut buf)?;
-        let tau = kh_prf::encrypt_block(prf_x.0, &hm.as_ref()[..31], 0);
-        buf.extend_from_slice(&tau);
+        let y = kh_prf::hash_tag_to_group(&hm.as_ref());
+        let tau = kh_prf::encrypt_point(prf_x.0, y, 0).compress_edwards();
+        buf.extend_from_slice(tau.as_bytes());
         // AEAD encrypt the header into the ciphertext header
         A::encrypt(key, &mut (&buf[..]), ct_hdr)
     }
@@ -241,11 +241,11 @@ impl<A: Cipher> UpEnc for ReCrypt<A, KhPrf>
         let tau_check = pt_and_hash.finish();
         let mut tau_buf = Vec::new();
         reader.read_to_end(&mut tau_buf)?;
-        let tau = kh_prf::decrypt_block(prf_x.0, &tau_buf, 0)?;
+        let y = kh_prf::decrypt_point(prf_x.0, kh_prf::deserialize_point(&tau_buf), 0);
 
         // This isn't great; the plaintext is already written to file before the
         // integrity is checked.
-        if &tau[..] != &tau_check.as_ref()[..31] {
+        if y.compress_edwards() != kh_prf::hash_tag_to_group(tau_check.as_ref()).compress_edwards() {
             return Err("integrity check failed".into());
         }
         Ok(())

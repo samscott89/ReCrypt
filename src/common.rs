@@ -1,15 +1,29 @@
 //! Commom functionality used across library
-use ring::digest;
+use std::iter::IntoIterator;
 
-// Simplification for SHA256 hash
-pub fn h(x: &[u8]) -> [u8; 32] {
-    let mut ctx = digest::Context::new(&digest::SHA256);
-    ctx.update(x);
-    let mut hx: [u8; 32] = [0u8; 32];
-    let res = ctx.finish();
-    hx.copy_from_slice(res.as_ref());
-    hx
+#[macro_export]
+macro_rules! h {
+    ( $( $x:expr ),* ) => (
+        {   
+            use ring::digest;
+            let mut ctx = digest::Context::new(&digest::SHA256);
+            $(
+                ctx.update($x);
+            )*
+            ctx.finish()
+        }
+    )
 }
+
+// // Simplification for SHA256 hash
+// pub fn h<'a, I: IntoIterator<Item=&'a [u8]>>(x: I) -> [u8; 32] {
+//     let mut ctx = digest::Context::new(&digest::SHA256);
+//     x.for_each(|x| ctx.update(x));
+//     let mut hx: [u8; 32] = [0u8; 32];
+//     let res = ctx.finish();
+//     hx.copy_from_slice(res.as_ref());
+//     hx
+// }
 
 // Pads a message to a multiple of block_len using PKCS7: pads the
 // message with bytes that indicate the number of padding bytes
@@ -59,14 +73,13 @@ pub fn remove_padding(mut msg: Vec<u8>) -> Option<Vec<u8>> {
 #[cfg(test)]
 mod test {
     use rand;
-    use super::h;
 
     #[test]
     fn hash_is_sane() {
         let x = [rand::random::<u8>(); 32];
-        let y = h(&x);
-        let z = h(&x);
-        assert_eq!(y, z);
+        let y = h!(&x);
+        let z = h!(&x);
+        assert_eq!(y.as_ref(), z.as_ref());
     }
 
 }

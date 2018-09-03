@@ -116,7 +116,7 @@ mod test {
         let mut rh = RwAndHash::new(&input[..]);
         rh.read_to_end(&mut buf);
         let digest = rh.finish();
-        assert_eq!(digest.as_ref(), h(&input));
+        assert_eq!(digest.as_ref(), h!(&input).as_ref());
         assert_eq!(buf, &input[..]);
     }
 
@@ -128,7 +128,7 @@ mod test {
             let mut wh = RwAndHash::new(&mut buf);
             wh.write_all(&input);
             let digest = wh.finish();
-            assert_eq!(digest.as_ref(), h(&input));
+            assert_eq!(digest.as_ref(), h!(&input).as_ref());
         }
         assert_eq!(buf, &input[..]);
     }

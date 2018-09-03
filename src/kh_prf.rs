@@ -8,7 +8,7 @@ use std::io::{Read,Write,BufReader,BufWriter};
 use std::ops::{Add, Sub};
 
 use super::*;
-use common::{h, pad};
+use common::pad;
 use io::*;
 
 /// Encryption using a key-homomorphic PRF.
@@ -200,7 +200,7 @@ pub fn encrypt_block(key: Scalar, msg: &[u8], ctr: u64) -> Vec<u8> {
     let c = encrypt_point(key, m, ctr);
 
     // c.serialize()
-    c.compress_edwards().as_bytes().to_vec()
+    serialize_point(c)
 }
 
 // big endian u64 to u8 array
@@ -219,7 +219,7 @@ pub fn u64_to_u8(v: u64) -> [u8; 8] {
 }
 
 fn prf(key: Scalar, ctr: u64) -> ExtendedPoint {
-    (&key * &hash_to_group(ctr)).mult_by_cofactor()
+    (&key * &hash_ctr_to_group(ctr)).mult_by_cofactor()
 }
 
 // Encrypt a single EcPoint.
@@ -229,14 +229,8 @@ pub fn encrypt_point(key: Scalar, msg: ExtendedPoint, ctr: u64) -> ExtendedPoint
 }
 
 pub fn update_block(rk: Scalar, ct_block: &[u8], ctr: u64) -> Vec<u8> {
-    debug_assert_eq!(ct_block.len(), 32);
-    let mut point_bytes = [0u8; 32];
-    point_bytes.copy_from_slice(&ct_block);
-    let point = curve25519_dalek::curve::CompressedEdwardsY(point_bytes);
-    let point = point.decompress().unwrap();
-    let newpoint = update_point(rk, point, ctr);
-
-    newpoint.compress_edwards().as_bytes().to_vec()
+    let newpoint = update_point(rk, deserialize_point(ct_block), ctr);
+    serialize_point(newpoint)
 }
 
 // Updates a single ciphertext block/point
@@ -246,21 +240,26 @@ pub fn update_point(rk: Scalar, block: ExtendedPoint, ctr: u64) -> ExtendedPoint
 
 // Decrypts a single block of ciphertext
 pub fn decrypt_block(key: Scalar, ct_block: &[u8], ctr: u64) -> Result<Vec<u8>> {
-    // let point = deserialize(&ct_block).unwrap();
-    debug_assert_eq!(ct_block.len(), 32);
-    let mut point_bytes = [0u8; 32];
-    point_bytes.copy_from_slice(&ct_block);
-    let point = curve25519_dalek::curve::CompressedEdwardsY(point_bytes);
-    let point = point.decompress().unwrap();
-    decode_point(decrypt_point(key, point, ctr))
+    decode_point(decrypt_point(key, deserialize_point(ct_block), ctr))
 }
 
 // Decrypts a single EcPoint
 pub fn decrypt_point(key: Scalar, ct: ExtendedPoint, ctr: u64) -> ExtendedPoint {
     &ct - &prf(key, ctr)
-
 }
 
+pub fn serialize_point(point: ExtendedPoint) -> Vec<u8> {
+    point.compress_edwards().as_bytes().to_vec()
+}
+
+pub fn deserialize_point(bytes: &[u8]) -> ExtendedPoint {
+    // let point = deserialize(&ct_block).unwrap();
+    debug_assert_eq!(bytes.len(), 32);
+    let mut point_bytes = [0u8; 32];
+    point_bytes.copy_from_slice(&bytes);
+    let point = curve25519_dalek::curve::CompressedEdwardsY(point_bytes);
+    point.decompress().unwrap()
+}
 
 pub fn encode_point(bytes: &[u8]) -> ExtendedPoint {
     debug_assert_eq!(bytes.len(), 31);
@@ -270,7 +269,6 @@ pub fn encode_point(bytes: &[u8]) -> ExtendedPoint {
     enc
 }
 pub fn decode_point(point: ExtendedPoint) -> Result<Vec<u8>> {
-    // point.compress_edwards().as_bytes()[1..].to_vec()
     // println!("Point to decode:{:?}", point); 
     let decoded = point.to_uniform_representative().unwrap();
     if decoded[31] != 0 {
@@ -279,14 +277,23 @@ pub fn decode_point(point: ExtendedPoint) -> Result<Vec<u8>> {
     Ok(decoded[..31].to_vec())
 }
 
-pub fn hash_to_group(ctr: u64) -> ExtendedPoint {
-    let mut bytes = u64_to_u8(ctr);
-    let hash = h(&bytes);
-    let p1 = encode_point(&hash[1..]);
-    bytes[0] = 0xff;
-    let mut hash = h(&bytes);
-    hash[31] &= 0x7f;
-    let p2 = Scalar(hash);
+pub fn hash_ctr_to_group(ctr: u64) -> ExtendedPoint {
+    let bytes = u64_to_u8(ctr);
+    hash_to_group(&bytes, "counter")
+}
+
+pub fn hash_tag_to_group(bytes: &[u8]) -> ExtendedPoint {
+    hash_to_group(&bytes, "tag")
+}
+
+pub fn hash_to_group(bytes: &[u8], label: &str) -> ExtendedPoint {
+    let h1 = h!(&label.as_bytes(), b"h1", &bytes);
+    let p1 = encode_point(&h1.as_ref()[1..]);
+    let h2 = h!(&label.as_bytes(), b"h2", &bytes);
+    let mut scalar_bytes = [0u8; 32];
+    scalar_bytes.copy_from_slice(&h2.as_ref());
+    scalar_bytes[31] &= 0x7f;
+    let p2 = Scalar(scalar_bytes);
     &p1 + &(&p2 * &curve25519_dalek::constants::ED25519_BASEPOINT_TABLE)
     // // This already maps the full 32-bytes to group points.
 }
