@@ -1,4 +1,8 @@
-## THIS IS PROTOTYPE CODE FOR RESEARCH - DO NOT USE
+## THIS IS PROTOTYPE CODE FOR RESEARCH - NOT SUITABLE OR TESTED FOR PRODUCTION USAGE
+
+It is also abandoned and using some unstable versions of libraries. I will try to 
+keep it working as long as possible though, so file as issue if it's completely
+broken.
 
 # ReCrypt
 ### Key Rotation for Authenticated Encryption
